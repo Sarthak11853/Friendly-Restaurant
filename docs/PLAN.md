@@ -61,18 +61,41 @@ taps **Add friend**. That gives:
 8. **Privacy enforced in the database** (Postgres Row Level Security). Even
    someone calling the API directly cannot read a stranger's review.
 
-## 5. Later phases
+## 5. "Rate it for your friends" reminders
 
-* **Phase 2:** an installable mobile app (Expo / React Native, same
-  Supabase backend) with phone-contact matching, push notifications
-  ("Rahul just reviewed a place near you"), and photos on reviews.
+Goal: when someone visits a restaurant, the app reminds them to rate it.
+
+**What a web app can and can't do:** browsers don't let websites run in the
+background, so a website can't notice a visit while it's closed. Only native
+apps can do that, using the phone's geofencing / visit detection. So reminders
+come in two stages:
+
+| | Web app (built now) | Native app (Phase 2) |
+|---|---|---|
+| Detect the visit | When you **open the app** at a restaurant, it checks your location and pops up "Are you at X?" | Automatically in the background, even when the app is closed |
+| Remind later | "Remind me after my meal" → push notification ~90 min later: "How was X?" | Local notification after you leave the restaurant |
+| Location stored? | Never. Only the place you choose to be reminded about | Never. Detection happens on the phone |
+
+The `visits` table, push sending, and the "To review" list are shared, so the
+native app plugs into the same backend.
+
+Built alongside it:
+* Push notifications for friend requests and accepted requests.
+* Installable app: icons, manifest, and iPhone Home Screen support.
+* **Delete account** (required by app stores and privacy law) and a privacy page.
+
+## 6. Later phases
+
+* **Phase 2:** a native mobile app (Expo / React Native, same Supabase
+  backend) with **automatic background visit detection**, phone-contact
+  matching, and photos on reviews.
 * **Phase 3:** optional friends-of-friends reviews (clearly labelled and
   weighted lower), wishlists ("want to go"), lists ("Best momos in Delhi"),
   and group decisions ("where should 5 of us eat tonight?").
 * **Trust signals:** "visited" verification using location check-in and
   receipt photos.
 
-## 6. Tech stack (chosen for low cost and fast development)
+## 7. Tech stack (chosen for low cost and fast development)
 
 | Layer | Choice | Why |
 |---|---|---|
@@ -83,7 +106,7 @@ taps **Add friend**. That gives:
 | Map | Leaflet + OpenStreetMap tiles | Free, no key. |
 | Hosting | Vercel | Free tier, automatic HTTPS, preview deploys. |
 
-## 7. Data model
+## 8. Data model
 
 ```
 profiles     id (= auth user id), username (unique), display_name, avatar_url
@@ -92,6 +115,9 @@ friendships  requester_id, addressee_id, status (pending | accepted)
 places       id, provider (osm | google), provider_id, name, address, lat, lng, category
 reviews      id, user_id, place_id, rating 1-5, body, must_try, price_level,
              would_return, visited_on    (unique per user + place)
+visits       id, user_id, place_id, status (pending | reviewed | dismissed),
+             remind_at, notified_at      ("To review" list + reminders)
+push_subscriptions  endpoint, user_id, keys   (one per device with notifications on)
 ```
 
 ### Security rules (RLS)

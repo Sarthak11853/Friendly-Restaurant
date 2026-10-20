@@ -1,7 +1,9 @@
 import Link from "next/link";
 import Avatar from "@/components/Avatar";
+import ReminderSettings from "@/components/ReminderSettings";
 import { requireUser } from "@/lib/supabase/server";
 import type { Profile } from "@/lib/types";
+import DeleteAccountButton from "./DeleteAccountButton";
 import ProfileForm from "./ProfileForm";
 
 export default async function MePage() {
@@ -25,9 +27,14 @@ export default async function MePage() {
         </div>
       </div>
       <ProfileForm profile={profile} />
+      <ReminderSettings />
       <form action="/auth/signout" method="post">
         <button className="btn-secondary w-full">Sign out</button>
       </form>
+      <div className="flex items-center justify-between text-sm">
+        <Link href="/privacy" className="text-stone-500 hover:underline">Privacy</Link>
+        <DeleteAccountButton />
+      </div>
     </div>
   );
 }

@@ -15,7 +15,7 @@ export default function Nav({ signedIn }: { signedIn: boolean }) {
           <Link href="/" className="flex items-center gap-2 font-bold">
             <img src="/icon.svg" alt="" className="h-7 w-7" />
             <span>
-              Friendly<span className="text-brand-500">Restaurant</span>
+              Friendly <span className="text-brand-500">Restaurant</span>
             </span>
           </Link>
           {signedIn ? (

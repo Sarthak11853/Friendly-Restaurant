@@ -1,10 +1,12 @@
 import Link from "next/link";
 import FriendsMap from "@/components/FriendsMap";
+import RemindersCard from "@/components/RemindersCard";
 import ReviewCard from "@/components/ReviewCard";
 import Stars from "@/components/Stars";
-import { friendPicks } from "@/lib/stats";
+import { friendPicks, type PlaceStats } from "@/lib/stats";
 import { createClient } from "@/lib/supabase/server";
 import type { ReviewWithRelations } from "@/lib/types";
+import { dismissVisit } from "./reminders/actions";
 
 export default async function Home() {
   const supabase = await createClient();
@@ -13,35 +15,74 @@ export default async function Home() {
   } = await supabase.auth.getUser();
   if (!user) return <Landing />;
 
-  // RLS limits this to my own and my friends' reviews.
-  const { data } = await supabase
-    .from("reviews")
-    .select("*, author:profiles(id, username, display_name, avatar_url), place:places(*)")
-    .order("created_at", { ascending: false })
-    .limit(300)
-    .returns<ReviewWithRelations[]>();
+  const [{ data }, { data: visits }] = await Promise.all([
+    // RLS limits this to my own and my friends' reviews.
+    supabase
+      .from("reviews")
+      .select("*, author:profiles(id, username, display_name, avatar_url), place:places(*)")
+      .order("created_at", { ascending: false })
+      .limit(300)
+      .returns<ReviewWithRelations[]>(),
+    supabase
+      .from("visits")
+      .select("id, created_at, place:places(id, name)")
+      .eq("status", "pending")
+      .order("created_at", { ascending: false })
+      .limit(10)
+      .returns<{ id: string; created_at: string; place: { id: string; name: string } }[]>(),
+  ]);
   const reviews = data ?? [];
   const picks = friendPicks(reviews, user.id);
   const feed = reviews.filter((r) => r.user_id !== user.id).slice(0, 30);
 
-  if (picks.length === 0) {
-    return (
-      <div className="card mt-6 space-y-4 text-center">
-        <p className="text-4xl">👋</p>
-        <h1 className="text-xl font-bold">Your friends haven&apos;t reviewed anything yet</h1>
-        <p className="text-stone-600">
-          Invite friends to start seeing their favourite places, and review a place you love so they can see yours.
-        </p>
-        <div className="flex justify-center gap-2">
-          <Link href="/friends" className="btn-primary">Invite friends</Link>
-          <Link href="/search" className="btn-secondary">Write a review</Link>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
+      <RemindersCard />
+      {visits && visits.length > 0 && (
+        <section className="card">
+          <h2 className="font-semibold">📝 To review</h2>
+          <ul className="divide-y divide-stone-100">
+            {visits.map((v) => (
+              <li key={v.id} className="flex items-center gap-2 py-2">
+                <div className="min-w-0 flex-1">
+                  <div className="truncate font-medium">{v.place.name}</div>
+                  <div className="text-xs text-stone-500">
+                    Visited {new Date(v.created_at).toLocaleDateString(undefined, { dateStyle: "medium" })}
+                  </div>
+                </div>
+                <Link href={`/places/${v.place.id}`} className="btn-primary">Rate</Link>
+                <form action={dismissVisit.bind(null, v.id)}>
+                  <button className="btn-secondary" aria-label={`Skip ${v.place.name}`}>Skip</button>
+                </form>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+      {picks.length === 0 ? <EmptyFeed /> : <FriendsFeed picks={picks} feed={feed} />}
+    </div>
+  );
+}
+
+function EmptyFeed() {
+  return (
+    <div className="card space-y-4 text-center">
+      <p className="text-4xl">👋</p>
+      <h1 className="text-xl font-bold">Your friends haven&apos;t reviewed anything yet</h1>
+      <p className="text-stone-600">
+        Invite friends to start seeing their favourite places, and review a place you love so they can see yours.
+      </p>
+      <div className="flex justify-center gap-2">
+        <Link href="/friends" className="btn-primary">Invite friends</Link>
+        <Link href="/search" className="btn-secondary">Write a review</Link>
+      </div>
+    </div>
+  );
+}
+
+function FriendsFeed({ picks, feed }: { picks: PlaceStats[]; feed: ReviewWithRelations[] }) {
+  return (
+    <>
       <section className="space-y-2">
         <h1 className="text-xl font-bold">Where your friends eat</h1>
         <FriendsMap
@@ -78,7 +119,7 @@ export default async function Home() {
           <ReviewCard key={r.id} review={r} />
         ))}
       </section>
-    </div>
+    </>
   );
 }
 
@@ -110,6 +151,9 @@ function Landing() {
           </div>
         ))}
       </section>
+      <p className="text-center text-xs text-stone-500">
+        <Link href="/privacy" className="hover:underline">Privacy</Link>
+      </p>
     </div>
   );
 }

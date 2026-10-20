@@ -6,5 +6,6 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|icon.svg|manifest.webmanifest|api/).*)"],
+  // Skip static files (icons, sw.js, manifest) and API routes, which check auth themselves.
+  matcher: ["/((?!_next/static|_next/image|api/|.*\\.(?:svg|png|ico|js|webmanifest)$).*)"],
 };

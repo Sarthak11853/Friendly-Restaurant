@@ -2,24 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { verifyCandidate } from "@/lib/places";
-import { createServiceClient, requireUser } from "@/lib/supabase/server";
+import { savePlace } from "@/lib/places";
+import { requireUser } from "@/lib/supabase/server";
 import type { PlaceCandidate } from "@/lib/types";
 
 /** Saves a signed search result as a place (if new) and opens its page. */
 export async function openPlace(candidate: PlaceCandidate) {
   await requireUser();
-  if (!verifyCandidate(candidate)) throw new Error("Invalid place");
-
-  const admin = createServiceClient();
-  const { provider, provider_id, name, address, lat, lng, category } = candidate;
-  const { data, error } = await admin
-    .from("places")
-    .upsert({ provider, provider_id, name, address, lat, lng, category }, { onConflict: "provider,provider_id" })
-    .select("id")
-    .single();
-  if (error) throw new Error(error.message);
-  redirect(`/places/${data.id}`);
+  redirect(`/places/${await savePlace(candidate)}`);
 }
 
 export async function saveReview(placeId: string, _prev: unknown, form: FormData) {
